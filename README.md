@@ -1,5 +1,12 @@
 # cert-manager-workshop
 
+## Requirements
+
+- Rootful docker
+- helm
+- k3d
+- kubectl
+
 ## Outline
 
 * Why cryptographic identity?
