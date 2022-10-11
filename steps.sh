@@ -1,5 +1,5 @@
 #!/bin/env bash
-source ../demo-magic.sh
+source ./demo-magic.sh
 clear
 
 ## Cluster setup
@@ -16,19 +16,50 @@ clear
 
 # All installs to be done with helm
 ## cert-manager install
+helm repo add linkerd https://helm.linkerd.io/stable
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
 
+wait
+clear
+
+## cert-manager install
 # Install cert-manager
-# create certs for Linkerd
+
+pe "helm install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set installCRDs=true --version v1.9.1"
+
+# Install trust-manager
+pe "helm upgrade -i -n cert-manager cert-manager-trust jetstack/cert-manager-trust --wait"
+
+# Create certs for Linkerd
+
+pe "kubectl apply -f bootstrap_ca.yaml"
+
+# Inspect root certificate
+
+pe "kubectl get -n cert-manager secrets linkerd-trust-anchor -ojson | jq '.data.\"tls.crt\"' -r | base64 -d | openssl x509 -noout -text"
+wait
+clear
+
+# Inspect intermediate certificate
+
+pe "kubectl get -n linkerd secrets linkerd-identity-issuer -ojson | jq '.data.\"tls.crt\"' -r | base64 -d | openssl x509 -noout -text"
+wait
+clear
 
 ## Linkerd
 
 # Install CRDS
+## Note: Namespace is created above
 
+pe "helm install linkerd-crds linkerd/linkerd-crds -n linkerd"
+
+pe "helm install linkerd-control-plane --namespace linkerd --set identity.externalCA=true --set identity.issuer.scheme=kubernetes.io/tls linkerd/linkerd-control-plane"
 
 
 ## Inject booksapp
 pe "kubectl get deploy -n booksapp -o yaml | linkerd inject - | kubectl apply -f -"
-wait 
+wait
 clear
 
 ## Look around
