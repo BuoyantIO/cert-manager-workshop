@@ -14,7 +14,7 @@ kubectl create ns booksapp && \
 
 clear
 
-#All installs to be done with helm
+# All installs to be done with helm
 ## cert-manager install
 
 # Install cert-manager
