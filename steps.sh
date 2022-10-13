@@ -20,20 +20,25 @@ helm repo add linkerd https://helm.linkerd.io/stable
 helm repo add jetstack https://charts.jetstack.io
 helm repo update
 
-wait
 clear
 
 ## cert-manager install
 # Install cert-manager
 
 pe "helm install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set installCRDs=true --version v1.9.1"
+wait
+clear
 
 # Install trust-manager
 pe "helm upgrade -i -n cert-manager cert-manager-trust jetstack/cert-manager-trust --wait"
+wait
+clear
 
 # Create certs for Linkerd
 
 pe "kubectl apply -f bootstrap_ca.yaml"
+wait
+clear
 
 # Inspect root certificate
 
@@ -53,9 +58,24 @@ clear
 ## Note: Namespace is created above
 
 pe "helm install linkerd-crds linkerd/linkerd-crds -n linkerd"
+wait
+clear
 
 pe "helm install linkerd-control-plane --namespace linkerd --set identity.externalCA=true --set identity.issuer.scheme=kubernetes.io/tls linkerd/linkerd-control-plane"
+wait
+clear
 
+pe "linkerd check"
+wait
+clear
+
+pe "helm install linkerd-viz --namespace linkerd-viz --create-namespace linkerd/linkerd-viz"
+wait
+clear
+
+pe "linkerd check"
+wait
+clear
 
 ## Inject booksapp
 pe "kubectl get deploy -n booksapp -o yaml | linkerd inject - | kubectl apply -f -"
