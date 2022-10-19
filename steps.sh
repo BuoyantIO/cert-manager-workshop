@@ -25,18 +25,24 @@ clear
 ## cert-manager install
 # Install cert-manager
 
-pe "helm install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set installCRDs=true --version v1.9.1"
+pe "helm install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set installCRDs=true --version v1.10.0"
 wait
 clear
 
 # Install trust-manager
-pe "helm upgrade -i -n cert-manager cert-manager-trust jetstack/cert-manager-trust --wait"
+pe "helm upgrade --install --namespace cert-manager cert-manager-trust jetstack/cert-manager-trust --wait"
 wait
 clear
 
 # Create certs for Linkerd
 
 pe "kubectl apply -f bootstrap_ca.yaml"
+wait
+clear
+
+# Inspect the YAML which defines the certificates
+
+pe "bat -lyaml bootstrap_ca.yaml"
 wait
 clear
 
