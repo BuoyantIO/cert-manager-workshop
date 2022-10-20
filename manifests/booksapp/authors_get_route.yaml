@@ -18,3 +18,7 @@ spec:
           value: "/authors/"
           type: "PathPrefix"
         method: GET
+      - path:
+          value: "/authors/"
+          type: "PathPrefix"
+        method: HEAD
