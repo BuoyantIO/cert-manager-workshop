@@ -32,9 +32,7 @@ that will demonstrate the principles of zero trust.
 ## Steps
 
 ```bash
-# Load up Booksapp and Emojivoto
-
-curl -sL run.linkerd.io/emojivoto.yml | kubectl apply -f -
+# Load up Booksapp, our demo application
 
 kubectl create ns booksapp && \
   curl --proto '=https' --tlsv1.2 \
@@ -48,8 +46,6 @@ kubectl create ns booksapp && \
 helm repo add linkerd https://helm.linkerd.io/stable
 helm repo add jetstack https://charts.jetstack.io
 helm repo update
-
-clear
 
 ## Install cert-manager
 
@@ -65,6 +61,9 @@ helm upgrade --install -n cert-manager cert-manager-trust \
 
 kubectl apply -f bootstrap_ca.yaml
 
+## Add ntoes about what's in here and why
+cat bootstrap_ca.yaml
+
 ## Inspect root certificate
 
 kubectl get -n cert-manager secrets linkerd-trust-anchor -ojson |
@@ -77,8 +76,7 @@ kubectl get -n linkerd secrets linkerd-identity-issuer -ojson |
 
 # Linkerd
 
-### Note: The Linkerd namespace was created above 
-### when we installed cert-manager
+### NOTE: The Linkerd namespace was created above 
 
 ## Install CRDS
 
@@ -94,16 +92,16 @@ helm install linkerd-control-plane --namespace linkerd \
 
 linkerd check
 
-## Install Linkerd Viz
+## Install Linkerd Viz so that we can see what's happening in the cluster
 
 helm install linkerd-viz --namespace linkerd-viz \
   --create-namespace linkerd/linkerd-viz
 
-linkerd check
+linkerd viz check
 
 # Adding our applications
 ## Inject booksapp
-### By inject we mean add the Linkerd proxys. This will
+### By inject we mean add the Linkerd proxies. This will
 ### enable mTLS for all our traffic and allow us to begin
 ### configuring policy
 
@@ -112,6 +110,8 @@ kubectl get deploy -n booksapp -o yaml | linkerd inject - |
 
 ## Look around, this is a good time to check on your pods
 ## and see the current state of traffic in your cluster.
+
+linkerd check --proxy -n booksapp 
 
 ## Things mostly work
 
@@ -135,21 +135,24 @@ kubectl annotate ns booksapp \
 
 kubectl get pods -n booksapp
 
-
 linkerd viz stat deploy -n booksapp
 
 ## Traffic is still there
+## That's because the default policy is only read by 
+## the proxies at startup time. In order to properly 
+## crater our traffic we need to run a rollout restart 
+## command.
 ### Apps still restart thanks to default exemptions for health checks
 
 kubectl rollout restart -n booksapp deploy
 
 # Now traffic is gone
-## Alternately watch the traffic
-# linkerd viz authz -n booksapp deployment
+## You can watch the traffic, 
+## or lack thereof with
 
+linkerd viz authz -n booksapp deployment
 
-# linkerd viz stat deploy -n booksapp
-
+linkerd viz stat deploy -n booksapp
 
 ## Allow admin traffic
 
@@ -162,8 +165,13 @@ kubectl apply -f manifests/booksapp/admin_server.yaml
 
 kubectl apply -f manifests/booksapp/allow_viz.yaml
 
+### In the server object you'll see a
+### Server that we created that will
+### refer to every linkerd admin port in 
+### our namespace.
 cat manifests/booksapp/admin_server.yaml
 
+### In this file we'll see the AuthorizationPolicy and it's corresponding binding that explicitly authorizes 
 cat manifests/booksapp/allow_viz.yaml
 
 
@@ -198,20 +206,45 @@ cat manifests/booksapp/allow_namespace.yaml
 
 kubectl apply -f manifests/booksapp/authors_get_route.yaml
 
+
+
 ## Wait a minute for the authors pod to become unready.
 ## You can safely ignore any restarts to the traffic pod.
 
-### Why did this happen? Linkerd creates default routes for you health and readiness checks when your pods get created. This ensures you can safely and easily enforce mTLS everywhere without needing to carve out exceptions for the kubelet. When we begin creating routes Linkerd assumes we no longer want the routes it created for us.
+### Why did this happen? Linkerd creates default routes 
+### for you health and readiness checks when your pods 
+### get created. This ensures you can safely and easily 
+### enforce mTLS everywhere without needing to carve out 
+### exceptions for the kubelet. When we begin creating 
+### routes Linkerd assumes we no longer want the routes 
+### it created for us.
 
 ## Lets fix our busted health checks, no more default routes
 
 kubectl apply -f manifests/booksapp/authors_probe.yaml
+
+### You can see here we explicitly re-authorize unauthenticated
+### connections to the health and readiness endpoint of our
+### application. This is required because the kubelet, which
+### performs those checks, is not, and cannot, be part of our
+### mesh.
+
+cat manifests/booksapp/authors_probe.yaml
+
 ## wait a minute for authors to become ready
 ### Check readiness
 
 ## Now that authors is ready we can enable traffic once again.
 
 kubectl apply -f manifests/booksapp/authors_get_policy.yaml
+
+### When you look at the route and policy objects you'll see
+### we are explicitly authorizing webapp and books to perform
+### GET requests on the authors service.
+
+cat manifests/booksapp/authors_get_route.yaml
+
+cat manifests/booksapp/authors_get_policy.yaml
 
 ## Check app
 
@@ -221,5 +254,16 @@ kubectl apply -f manifests/booksapp/authors_get_policy.yaml
 
 kubectl apply -f manifests/booksapp/authors_modify_route.yaml
 
+manifests/booksapp/authors_modify_route.yaml
+
 kubectl apply -f manifests/booksapp/authors_modify_policy.yaml
+
+manifests/booksapp/authors_modify_policy.yaml
+
+### With this we've wrapped up our demo. You can see when we 
+### get to route based policy we've significantly increased the
+### complexity of our custom resource definitions. Feel free to
+### explore more on your own, a good exercise is to add routes 
+### to books or allow an ingress to talk to webapp.
+
 ```
