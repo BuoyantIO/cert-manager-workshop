@@ -1,23 +1,39 @@
 # Cert Manager Workshop
 
-Welcome to our join Buoyant and Jetstack workshop on zero trust in Kubernetes with Linkerd.
+Welcome to our joint Buoyant and Jetstack workshop on zero trust in Kubernetes with Linkerd!
+
 We're going to walk you through installing and configuring Linkerd with a short lived
 certificate. Then we're going to show you how to configure policy for a sample application
 that will demonstrate the principles of zero trust.
 
+We'll use both [cert-manager](https://github.com/cert-manager/cert-manager) and [trust-manager](https://github.com/cert-manager/trust)
+for managing our certs.
+
 ## Requirements
 
-* Rootful docker
-* helm
-* k3d
-* kubectl
+You'll need the [Linkerd CLI](https://linkerd.io/2.12/getting-started/) installed for this workshop.
+
+In addition, you'll need any recent version of the following tools:
+
+* `helm`
+* `kubectl`
+* `curl`
+* `openssl` and `jq` (only required to inspect certificates; you can complete the workshop without these tools!)
+
+In addition, if you want to run a test cluster locally using k3d you'll need the following tools:
+
+* k3d (and rootful docker)
+* or kind (untested)
+
+We recommend that workshop attendees follow the instructions on our slides which detail how to get
+a free Civo cluster for test purposes, rather than trying to use k3d or kind!
 
 ## Outline
 
 * Why cryptographic identity?
 * Why use cert-manager?
-* Cert manager Issuers
-  * CA
+* cert-manager Issuers
+  * CA / SelfSigned
   * Vault
   * Venafi
   * ACME
