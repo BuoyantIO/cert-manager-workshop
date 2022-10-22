@@ -73,11 +73,16 @@ helm install cert-manager jetstack/cert-manager --namespace cert-manager \
 helm upgrade --install -n cert-manager cert-manager-trust \
   jetstack/cert-manager-trust --wait
 
-## Create certs for Linkerd
+## Create linkerd namespace, since we'll want to create certs there later!
+
+kubectl create ns linkerd
+
+## Create our issuers, certs and our trust bundle for Linkerd
 
 kubectl apply -f bootstrap_ca.yaml
 
-## Add ntoes about what's in here and why
+## Let's take a look at what's in bootstrap_ca.yaml!
+
 cat bootstrap_ca.yaml
 
 ## Inspect root certificate
@@ -92,19 +97,17 @@ kubectl get -n linkerd secrets linkerd-identity-issuer -ojson |
 
 # Linkerd
 
-### NOTE: The Linkerd namespace was created above 
+### NOTE: The Linkerd namespace was created above
 
 ## Install CRDS
 
 helm install linkerd-crds linkerd/linkerd-crds -n linkerd
 
 ## Install Linkerd's Control Plane
-## You can see we reference the already created
-## CA
+## You can see we reference the already created CA by setting "exernalCA" to true
+## and setting the issuer scheme to use a Kubernetes secret
 
-helm install linkerd-control-plane --namespace linkerd \
-  --set identity.externalCA=true \
-  --set identity.issuer.scheme=kubernetes.io/tls linkerd/linkerd-control-plane
+helm install linkerd-control-plane --namespace linkerd --set identity.externalCA=true --set identity.issuer.scheme=kubernetes.io/tls linkerd/linkerd-control-plane
 
 linkerd check
 

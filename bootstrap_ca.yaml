@@ -1,8 +1,7 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: linkerd
----
+# SelfSigned issuers are a simple signal that a Certificate should be signed
+# using its own private key
+# SelfSigned issuers are cert-manager's way of creating root certificates.
+
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
@@ -10,6 +9,13 @@ metadata:
 spec:
   selfSigned: {}
 ---
+# The first certificate we need is our root certificate.
+# Root certificates are self-signed, must be CAs, and tend to last longer
+# than most other certificates.
+
+# We create the root certificate in the "cert-manager" so it can be used as
+# a ClusterIssuer
+
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -31,6 +37,10 @@ spec:
   - cert sign
   - crl sign
 ---
+# Once we're created our root certificate, we create a CA issuer
+# using that root certificate.
+# The CA issuer is cert-manager's way of doing in-cluster issuance.
+
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
@@ -39,6 +49,13 @@ spec:
   ca:
     secretName: linkerd-trust-anchor
 ---
+# Next we want to create an intermediate certificate, which will
+# be used to issue the certificates which will actually be used
+# in our mesh later!
+
+# The intermediate can be shorter lived than the root since it's
+# easier to rotate
+
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -64,6 +81,13 @@ spec:
   - server auth
   - client auth
 ---
+# Finally, create a trust bundle so we can distribute our long-lived
+# root certificate to different namespaces.
+
+# This uses trust-manager to ensure that our root certificate is
+# available in every namespace (even though we only actually need it in the
+# linkerd namespace in practice for our purposes here)
+
 apiVersion: trust.cert-manager.io/v1alpha1
 kind: Bundle
 metadata:

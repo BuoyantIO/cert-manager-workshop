@@ -34,6 +34,12 @@ pe "helm upgrade --install --namespace cert-manager cert-manager-trust jetstack/
 wait
 clear
 
+# Create the linkerd namespace ahead of time since we'll create our certs there
+
+pe "kubectl create ns linkerd"
+wait
+clear
+
 # Create certs for Linkerd
 
 pe "kubectl apply -f bootstrap_ca.yaml"
