@@ -273,13 +273,13 @@ cat manifests/booksapp/authors_get_policy.yaml
 
 kubectl apply -f manifests/booksapp/authors_modify_route.yaml
 
-manifests/booksapp/authors_modify_route.yaml
+cat manifests/booksapp/authors_modify_route.yaml
 
 kubectl apply -f manifests/booksapp/authors_modify_policy.yaml
 
-manifests/booksapp/authors_modify_policy.yaml
+cat manifests/booksapp/authors_modify_policy.yaml
 
-### With this we've wrapped up our demo. You can see when we 
+### With this we've wrapped up our workshop! You can see when we 
 ### get to route based policy we've significantly increased the
 ### complexity of our custom resource definitions. Feel free to
 ### explore more on your own, a good exercise is to add routes 
