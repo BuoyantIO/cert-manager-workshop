@@ -1,4 +1,4 @@
-# Cert Manager Workshop
+# cert-manager Workshop
 
 Welcome to our joint Buoyant and Jetstack workshop on zero trust in Kubernetes with Linkerd!
 
@@ -107,7 +107,9 @@ helm install linkerd-crds linkerd/linkerd-crds -n linkerd
 ## You can see we reference the already created CA by setting "exernalCA" to true
 ## and setting the issuer scheme to use a Kubernetes secret
 
-helm install linkerd-control-plane --namespace linkerd --set identity.externalCA=true --set identity.issuer.scheme=kubernetes.io/tls linkerd/linkerd-control-plane
+helm install linkerd-control-plane --namespace linkerd \
+  --set identity.externalCA=true \
+  --set identity.issuer.scheme=kubernetes.io/tls linkerd/linkerd-control-plane
 
 linkerd check
 
