@@ -13,8 +13,9 @@ for managing our certs.
 
 You'll need the [Linkerd CLI](https://linkerd.io/2.12/getting-started/) installed for this workshop.
 
-In addition, you'll need any recent version of the following tools:
+In addition, you'll need recent versions of the following tools:
 
+* The [Civo CLI](https://github.com/civo/cli#set-up) if you want to use Civo clusters (recommended!)
 * `helm`
 * `kubectl`
 * `curl`
