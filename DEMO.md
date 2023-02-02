@@ -177,7 +177,7 @@ kubectl describe secret -n cert-manager linkerd-identity-trust-roots
 ```
 
 Just to prove that there's really a certificate in there, let's take a closer
-look at it. See the `ca.crt` key listed in the output? Its value is a
+look at it. See the `tls.crt` key listed in the output? Its value is a
 base64-encoded certificate (which, yes, means that it's base64-encoded
 base64-encoded data -- oh well).
 
@@ -285,3 +285,132 @@ linkerd check
 
 <!-- @wait_clear -->
 
+## Sign the trust anchor CA using Hashicorp Vault
+
+Instead of using a self-signed trust-anchor CA,
+you might prefer to sign that CA using your organizational root CA certificate,
+which is presumably stored outside the Kubernetes cluster.
+
+cert-manager can connect to various external certificate authorities
+and here we will simulate such an external certificate authority by installing Hashicorp Vault inside the Kubernetes cluster.
+
+
+### Install Hashicorp Vault using Helm
+
+Hashicorp Vault can be installed in Kubernetes using Helm
+and the Helm values in `manifests/hashicorp-vault.values.yaml` contain configuration settings which cause Vault to start in insecure development mode with a fixed API token and without HTTPS encryption of the API server.
+
+> ⚠️ This installation is for demonstration purposes only and should not be used in production.
+
+```bash
+helm upgrade vault vault \
+    --install \
+    --create-namespace \
+    --wait \
+    --namespace vault \
+    --repo https://helm.releases.hashicorp.com \
+    --values manifests/hashicorp-vault.values.yaml
+```
+
+### Create a root CA in Vault
+
+Here we will quickly configure Vault with a simple root CA.
+
+> 📖 Read the [Hashicorp Vault - Quick Start - Root CA Setup](https://developer.hashicorp.com/vault/docs/secrets/pki/quick-start-root-ca) documentation for more details.
+
+Mount the PKI engine at `pki/`:
+
+```bash
+kubectl exec -n vault pods/vault-0 -- \
+    vault secrets enable pki
+```
+
+Allow certificates valid for up to 10 years:
+
+```bash
+kubectl exec -n vault pods/vault-0 -- \
+    vault secrets tune -max-lease-ttl=87600h pki
+```
+
+Create a root certificate:
+
+```bash
+kubectl exec -n vault pods/vault-0 -- \
+    vault write pki/root/generate/internal \
+        common_name="Example Corp Root" \
+        organization="Example Corp" \
+        country="US" \
+        issuer_name="root-2023" \
+        ttl=87600h
+```
+
+> ℹ️ The `generate/internal` endpoint causes Hashicorp Vault to generate a new CA certificate key pair where the private key is not returned and cannot be retrieved later.
+>
+> 📖 Read the [Vault PKI API documentation](https://developer.hashicorp.com/vault/api-docs/secret/pki#type-1) for more information.
+
+## Create a cert-manager Vault Issuer
+
+cert-manager can use a Vault API token when it connects to the Vault REST API.
+In this demo we use a fixed API token which is in the `hashicorp-vault.values.yaml` which we used earlier when we installed Vault.
+Store it in a Kubernetes Secret:
+
+```bash
+kubectl create secret generic vault-token \
+    --namespace=cert-manager \
+    --from-literal=token=root-token-1234
+```
+
+Create a ClusterIssuer, configured to connect to Hashicorp Vault:
+
+```bash
+kubectl apply -f manifests/cert-manager-root-ca-vault.yaml
+```
+
+Check that the ClusterIssuer is ready:
+
+```bash
+kubectl get clusterissuer linkerd-vault-issuer
+```
+
+> 📖 Read more about [Configuring the Vault Issuer in cert-manager](https://cert-manager.io/docs/configuration/vault/).
+
+## Patch the linkerd-trust-anchor Certificate to use the Vault Issuer
+
+You can change the `issuerRef` of a cert-manager Certificate resource and it will cause cert-manager to re-issue the TLS certificate using that Issuer or ClusterIssuer.
+
+Patch the Certificate resource to use the new Vault ClusterIssuer:
+
+```bash
+kubectl patch certificate linkerd-trust-anchor \
+    --namespace cert-manager \
+    --type merge \
+    --patch '{"spec":{"issuerRef":{"name":"linkerd-vault-issuer"}}}'
+```
+
+This will cause the `linkerd-identity-trust-roots` Secret to be updated with a new TLS certificate,
+which in turn will cause `trust-manager` to copy the new `tls.crt` file to the `linkerd-identity-trust-roots` ConfigMap.
+You can see this for your self by decoding the `ca-bundle.crt` file, as follows:
+
+```bash
+kubectl get configmap linkerd-identity-trust-roots \
+    --namespace linkerd \
+    --output jsonpath='{.data.ca-bundle\.crt}' | step certificate inspect
+```
+
+
+You will see that the CA is now signed by the `Example Corp Root` CA certificate.
+
+```console
+...
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number: 94797767553671347802203032417755360874996847324 (0x109ae1009323a31417fa4b27ad3f9a1e704e52dc)
+    Signature Algorithm: SHA256-RSA
+        Issuer: C=US,O=Example Corp,CN=Example Corp Root
+        Validity
+            Not Before: Feb 2 15:57:12 2023 UTC
+            Not After : May 3 15:57:42 2023 UTC
+        Subject: CN=root.linkerd.cluster.local
+...
+```
